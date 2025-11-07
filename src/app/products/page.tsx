@@ -12,22 +12,29 @@ const categories = [
   { name: "Hygiene" },
   { name: "Decoration" },
 ];
+const data = [
+    { id: 1, name: "Protein Powder", expirationDate: "2024-12-31", quantity: 20, category: "Nutrition" },
+    { id: 2, name: "Yoga Mat", expirationDate: "2026-01-15", quantity: 5, category: "Sport" },
+    { id: 3, name: "Face Cream", expirationDate: "2023-11-20", quantity: 0, category: "Beaute" },
+    { id: 4, name: "Shampoo", expirationDate: "2025-05-10", quantity: 30, category: "Hygiene" },
+    { id: 5, name: "Candle Set", expirationDate: "2027-08-25", quantity: 12, category: "Decoration" },
+]
 
 export default function ProductsPage() {
   const searchParams = useSearchParams();
   const categoryFromURL = searchParams.get("category") || "All";
 
   const [selectedCategory, setSelectedCategory] = useState<string>(categoryFromURL);
-  const [products, setProducts] = useState<any[]>([
-    { id: 1, name: "Protein Powder", expirationDate: "2024-12-31", quantity: 20, category: "Nutrition" },
-    { id: 2, name: "Yoga Mat", expirationDate: "2026-01-15", quantity: 5, category: "Sport" },
-    { id: 3, name: "Face Cream", expirationDate: "2023-11-20", quantity: 0, category: "Beaute" },
-    { id: 4, name: "Shampoo", expirationDate: "2025-05-10", quantity: 30, category: "Hygiene" },
-    { id: 5, name: "Candle Set", expirationDate: "2027-08-25", quantity: 12, category: "Decoration" },
-  ]);
+  const [products, setProducts] = useState<any[]>([]);
 
   useEffect(() => {
     setSelectedCategory(categoryFromURL);
+    // Fetch products based on the selected category
+    const fetchProducts = async () => {
+      const data = await getProducts();
+      setProducts(data);
+    };
+    fetchProducts();
   }, [categoryFromURL]);
 
   const filteredProducts = products.filter(
