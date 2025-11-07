@@ -1,116 +1,136 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
+interface Product {
+  id: number;
+  name: string;
+  expiration_date: string;
+  quantity: number;
+  restockDate: string | null;
+  supplier: string;
+  category: string;
+  quantityReaprov: number | null;
+}
+
+interface Supplier {
+  name: string;
+  category: string;
+  products: Product[];
+}
 
 export default function EspaceFournisseur() {
-  const [selectedFournisseur, setSelectedFournisseur] = useState("");
-  const [pendingRequests, setPendingRequests] = useState<
-    {
-      fournisseurId: number;
-      produitId: number;
-      newStock: number;
-      date: string;
-    }[]
-  >([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [selectedSupplier, setSelectedSupplier] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState<number | null>(null);
 
-  // 📅 Date du jour au format YYYY-MM-DD
   const today = new Date().toISOString().split("T")[0];
 
-  const fournisseurs = [
-    {
-      id: 1,
-      name: "Fournisseur 1",
-      categorie: "Nutrition",
-      produits: [
-        { id: 1, nom: "Viande rouge", stock: 12 },
-        { id: 2, nom: "Pomme", stock: 6 },
-        { id: 3, nom: "Pain complet", stock: 22 },
-        { id: 4, nom: "Lait", stock: 4 },
-        { id: 5, nom: "Yaourt", stock: 18 },
-      ],
-    },
-    {
-      id: 2,
-      name: "Fournisseur 2",
-      categorie: "Sport",
-      produits: [
-        { id: 1, nom: "Ballon", stock: 10 },
-        { id: 2, nom: "Chaussures", stock: 30 },
-        { id: 3, nom: "Haltères", stock: 8 },
-        { id: 4, nom: "Gants", stock: 20 },
-        { id: 5, nom: "Tapis", stock: 5 },
-      ],
-    },
-    {
-      id: 3,
-      name: "Fournisseur 3",
-      categorie: "Beauté",
-      produits: [
-        { id: 1, nom: "Crème", stock: 14 },
-        { id: 2, nom: "Shampoing", stock: 18 },
-        { id: 3, nom: "Savon", stock: 3 },
-        { id: 4, nom: "Parfum", stock: 25 },
-        { id: 5, nom: "Lotion", stock: 11 },
-      ],
-    },
-    {
-      id: 4,
-      name: "Fournisseur 4",
-      categorie: "Hygiène",
-      produits: [
-        { id: 1, nom: "Dentifrice", stock: 16 },
-        { id: 2, nom: "Gel douche", stock: 12 },
-        { id: 3, nom: "Mouchoirs", stock: 9 },
-        { id: 4, nom: "Déodorant", stock: 22 },
-        { id: 5, nom: "Cotons", stock: 4 },
-      ],
-    },
-    {
-      id: 5,
-      name: "Fournisseur 5",
-      categorie: "Décoration",
-      produits: [
-        { id: 1, nom: "Vase", stock: 8 },
-        { id: 2, nom: "Cadre", stock: 17 },
-        { id: 3, nom: "Lampe", stock: 5 },
-        { id: 4, nom: "Tableau", stock: 10 },
-        { id: 5, nom: "Bougie", stock: 19 },
-      ],
-    },
-  ];
+  // 🧩 Fetch products
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const res = await fetch("http://localhost:8000/api/products", {
+          cache: "no-store",
+        });
+        if (!res.ok) throw new Error("Failed to load products");
+        const data = await res.json();
+        setProducts(data);
 
-  const fournisseurSelectionne = fournisseurs.find(
-    (f) => f.name === selectedFournisseur
+        // Grouper par fournisseur
+        const grouped = data.reduce((acc: Record<string, Supplier>, prod: Product) => {
+          if (!prod.supplier) return acc;
+          if (!acc[prod.supplier]) {
+            acc[prod.supplier] = {
+              name: prod.supplier,
+              category: prod.category,
+              products: [],
+            };
+          }
+          acc[prod.supplier].products.push(prod);
+          return acc;
+        }, {});
+        setSuppliers(Object.values(grouped));
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProducts();
+  }, []);
+
+  const supplierSelected = suppliers.find(
+    (s) => s.name === selectedSupplier
   );
 
-  const handleStockRequest = (
-    fournisseurId: number,
-    produitId: number,
-    newStock: number,
-    date: string
-  ) => {
-    if (isNaN(newStock) || newStock < 5 || newStock > 30)
-      return alert("⚠️ Le stock doit être compris entre 5 et 30 unités.");
-    if (!date) return alert("⚠️ Veuillez indiquer une date approximative de réapprovisionnement.");
-    if (new Date(date) < new Date(today))
-      return alert("⚠️ La date ne peut pas être antérieure à aujourd'hui.");
+  // 🧩 PATCH - Mise à jour du produit
+  const handleRestock = async (productId: number, newStock: number, restockDate: string) => {
+    if (isNaN(newStock) || newStock < 5 || newStock > 30) {
+      alert("⚠️ Le stock doit être compris entre 5 et 30 unités.");
+      return;
+    }
+    if (!restockDate) {
+      alert("⚠️ Veuillez indiquer une date approximative de réapprovisionnement.");
+      return;
+    }
+    if (new Date(restockDate) < new Date(today)) {
+      alert("⚠️ La date ne peut pas être antérieure à aujourd'hui.");
+      return;
+    }
 
-    setPendingRequests((prev) => [
-      ...prev,
-      { fournisseurId, produitId, newStock, date },
-    ]);
+    try {
+      setUpdating(productId);
+
+      const res = await fetch(`http://localhost:8000/api/products/${productId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          restockDate: restockDate,
+          quantityReaprov: newStock,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Erreur lors de la mise à jour du produit");
+      }
+
+      const updatedProduct = await res.json();
+
+      // ✅ Met à jour localement l’état du produit
+      setProducts((prev) =>
+        prev.map((p) => (p.id === productId ? updatedProduct : p))
+      );
+
+      // ✅ Met à jour aussi les fournisseurs
+      setSuppliers((prev) =>
+        prev.map((s) => ({
+          ...s,
+          products: s.products.map((p) =>
+            p.id === productId ? updatedProduct : p
+          ),
+        }))
+      );
+
+      alert("✅ Réapprovisionnement enregistré avec succès !");
+    } catch (error) {
+      console.error(error);
+      alert("❌ Une erreur est survenue pendant la mise à jour.");
+    } finally {
+      setUpdating(null);
+    }
   };
 
-  const isPending = (fournisseurId: number, produitId: number) =>
-    pendingRequests.some(
-      (req) =>
-        req.fournisseurId === fournisseurId && req.produitId === produitId
+  if (loading) {
+    return (
+      <main className="flex justify-center items-center h-screen">
+        <p className="text-lg text-gray-500">Chargement des fournisseurs...</p>
+      </main>
     );
-
-  const getPendingRequest = (fournisseurId: number, produitId: number) =>
-    pendingRequests.find(
-      (req) =>
-        req.fournisseurId === fournisseurId && req.produitId === produitId
-    );
+  }
 
   return (
     <main className="container mx-auto p-8 bg-gray-50 min-h-screen">
@@ -118,7 +138,7 @@ export default function EspaceFournisseur() {
         Espace Fournisseur
       </h1>
 
-      {/* Sélecteur de fournisseur */}
+      {/* Sélecteur fournisseur */}
       <div className="overflow-x-auto rounded-lg shadow-md mb-8">
         <table className="min-w-full bg-white border border-gray-200 text-center">
           <thead className="bg-blue-600 text-white uppercase text-sm">
@@ -130,14 +150,14 @@ export default function EspaceFournisseur() {
             <tr>
               <td className="py-4 px-4 border-t border-gray-200">
                 <select
-                  value={selectedFournisseur}
-                  onChange={(e) => setSelectedFournisseur(e.target.value)}
+                  value={selectedSupplier}
+                  onChange={(e) => setSelectedSupplier(e.target.value)}
                   className="border border-gray-300 rounded px-4 py-2 w-64 focus:ring-2 focus:ring-blue-400"
                 >
                   <option value="">-- Sélectionner un fournisseur --</option>
-                  {fournisseurs.map((f) => (
-                    <option key={f.id} value={f.name}>
-                      {f.name}
+                  {suppliers.map((s) => (
+                    <option key={s.name} value={s.name}>
+                      {s.name}
                     </option>
                   ))}
                 </select>
@@ -148,103 +168,93 @@ export default function EspaceFournisseur() {
       </div>
 
       {/* Tableau produits */}
-      {fournisseurSelectionne && (
+      {supplierSelected && (
         <div className="bg-white rounded-lg shadow-lg p-6">
           <h2 className="text-2xl font-semibold text-center text-gray-700 mb-4">
             Catégorie :{" "}
-            <span className="text-blue-600">
-              {fournisseurSelectionne.categorie}
-            </span>
+            <span className="text-blue-600">{supplierSelected.category}</span>
           </h2>
 
           <table className="min-w-full border border-gray-200 text-center">
             <thead className="bg-blue-600 text-white uppercase text-sm">
               <tr>
                 <th className="py-3 px-4 border-r">Produit</th>
-                <th className="py-3 px-4 border-r">Stock disponible</th>
+                <th className="py-3 px-4 border-r">Stock</th>
                 <th className="py-3 px-4">Réapprovisionnement</th>
               </tr>
             </thead>
             <tbody>
-              {fournisseurSelectionne.produits.map((p) => {
-                const pending = getPendingRequest(
-                  fournisseurSelectionne.id,
-                  p.id
-                );
+              {supplierSelected.products.map((p) => {
+                const isLowStock = p.quantity < 15;
+                const restockPlanned = p.restockDate !== null;
 
                 return (
                   <tr key={p.id} className="hover:bg-blue-50">
                     <td className="py-3 px-4 border-t border-gray-200">
-                      {p.nom}
+                      {p.name}
                     </td>
                     <td className="py-3 px-4 border-t border-gray-200 font-semibold">
                       <span
                         className={`${
-                          p.stock < 15 ? "text-red-600" : "text-green-600"
+                          isLowStock ? "text-red-600" : "text-green-600"
                         }`}
                       >
-                        {p.stock} unités
+                        {p.quantity} unités
                       </span>
-                      {p.stock < 15 && (
-                        <p className="text-red-600 text-sm mt-1">
-                          Produit indisponible
-                        </p>
-                      )}
                     </td>
                     <td className="py-3 px-4 border-t border-gray-200">
-                      {p.stock < 15 ? (
-                        pending ? (
-                          <div className="text-yellow-600 font-medium">
-                            🕓 Demande en attente de confirmation par le client
-                            <br />
-                            📅 Réapprovisionnement prévu le :{" "}
-                            <span className="font-semibold text-gray-800">
-                              {pending.date}
-                            </span>
-                          </div>
-                        ) : (
-                          <div className="flex flex-col items-center gap-2">
-                            <input
-                              type="number"
-                              min="5"
-                              max="30"
-                              placeholder="5 à 30 unités"
-                              className="border border-gray-300 rounded px-2 py-1 w-36 text-center focus:ring-2 focus:ring-blue-400"
-                              id={`stock-${p.id}`}
-                            />
-                            <input
-                              type="date"
-                              min={today}
-                              className="border border-gray-300 rounded px-2 py-1 w-44 text-center focus:ring-2 focus:ring-blue-400"
-                              id={`date-${p.id}`}
-                            />
-                            <button
-                              className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
-                              onClick={() => {
-                                const stockValue = parseInt(
-                                  (
-                                    document.getElementById(
-                                      `stock-${p.id}`
-                                    ) as HTMLInputElement
-                                  ).value
-                                );
-                                const dateValue = (
+                      {restockPlanned ? (
+                        <div className="text-green-700 font-medium">
+                          ✅ Réapprovisionnement prévu le{" "}
+                          <span className="font-semibold">
+                            {new Date(p.restockDate!).toLocaleDateString()}
+                          </span>
+                          <p className="font-semibold">
+                            {p.quantityReaprov} unités
+                          </p>
+                        </div>
+                      ) : isLowStock ? (
+                        <div className="flex flex-col items-center gap-2">
+                          <input
+                            type="number"
+                            min="5"
+                            max="30"
+                            placeholder="5 à 30 unités"
+                            className="border border-gray-300 rounded px-2 py-1 w-36 text-center focus:ring-2 focus:ring-blue-400"
+                            id={`stock-${p.id}`}
+                          />
+                          <input
+                            type="date"
+                            min={today}
+                            className="border border-gray-300 rounded px-2 py-1 w-44 text-center focus:ring-2 focus:ring-blue-400"
+                            id={`date-${p.id}`}
+                          />
+                          <button
+                            disabled={updating === p.id}
+                            className={`${
+                              updating === p.id
+                                ? "bg-gray-400 cursor-not-allowed"
+                                : "bg-blue-600 hover:bg-blue-700"
+                            } text-white px-3 py-1 rounded`}
+                            onClick={() => {
+                              const stockValue = parseInt(
+                                (
                                   document.getElementById(
-                                    `date-${p.id}`
+                                    `stock-${p.id}`
                                   ) as HTMLInputElement
-                                ).value;
-                                handleStockRequest(
-                                  fournisseurSelectionne.id,
-                                  p.id,
-                                  stockValue,
-                                  dateValue
-                                );
-                              }}
-                            >
-                              Valider
-                            </button>
-                          </div>
-                        )
+                                ).value
+                              );
+                              const dateValue = (
+                                document.getElementById(
+                                  `date-${p.id}`
+                                ) as HTMLInputElement
+                              ).value;
+                              handleRestock(p.id, stockValue, dateValue);
+                            }}
+                          >
+                            {updating === p.id ? "Mise à jour..." : "Valider"}
+                          </button>
+                        </div>
                       ) : (
                         <span className="text-gray-400 italic">Stock OK</span>
                       )}
