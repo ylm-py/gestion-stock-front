@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation"; // ✅ Pour la navigation dynamique
 
 const fetchCategories = async () => {
   const baseURL = "http://localhost:8000/api/category/";
@@ -11,6 +12,7 @@ const fetchCategories = async () => {
 export default function Home() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
+  const router = useRouter(); // ✅ Hook pour rediriger
 
   useEffect(() => {
     fetchCategories()
@@ -18,6 +20,11 @@ export default function Home() {
       .catch((err) => console.error(err))
       .finally(() => setLoading(false));
   }, []);
+
+  const handleCategoryClick = (id: number) => {
+    // ✅ Redirige vers une page spécifique à la catégorie
+    router.push(`/categories/${id}`);
+  };
 
   if (loading) {
     return (
@@ -37,8 +44,10 @@ export default function Home() {
         <table className="min-w-full bg-white border border-gray-200 text-center">
           <thead className="bg-blue-600 text-white uppercase text-sm tracking-wider">
             <tr>
-              <th className="py-3 px-4 border-r border-gray-300">Numéro de Catégorie</th>
-              <th className="py-3 px-4">Nom Caté</th>
+              <th className="py-3 px-4 border-r border-gray-300">
+                Numéro de Catégorie
+              </th>
+              <th className="py-3 px-4">Nom Catégorie</th>
             </tr>
           </thead>
 
@@ -46,12 +55,15 @@ export default function Home() {
             {categories.map((category) => (
               <tr
                 key={category.id}
-                className="hover:bg-blue-50 transition duration-200"
+                onClick={() => handleCategoryClick(category.id)} // ✅ Clique actif
+                className="hover:bg-blue-50 transition duration-200 cursor-pointer" // ✅ Curseur + hover
               >
                 <td className="py-3 px-4 border-t border-gray-200 text-gray-800 font-medium">
                   {category.id}
                 </td>
-                <td className="py-3 px-4 border-t border-gray-200 text-gray-700">
+                <td
+                  className="py-3 px-4 border-t border-gray-200 text-blue-600 font-semibold hover:underline hover:text-blue-800"
+                >
                   {category.name}
                 </td>
               </tr>
