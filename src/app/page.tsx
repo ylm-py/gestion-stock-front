@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation"; // ✅ Pour la navigation dynamique
+import { useRouter } from "next/navigation";
 
 const fetchCategories = async () => {
   const baseURL = "http://localhost:8000/api/category/";
@@ -12,7 +12,7 @@ const fetchCategories = async () => {
 export default function Home() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
-  const router = useRouter(); // ✅ Hook pour rediriger
+  const router = useRouter();
 
   useEffect(() => {
     fetchCategories()
@@ -21,9 +21,8 @@ export default function Home() {
       .finally(() => setLoading(false));
   }, []);
 
-  const handleCategoryClick = (id: number) => {
-    // ✅ Redirige vers une page spécifique à la catégorie
-    router.push(`/categories/${id}`);
+  const handleCategoryClick = (category: any) => {
+    router.push(`/products?category=${encodeURIComponent(category.name)}`);
   };
 
   if (loading) {
@@ -55,15 +54,13 @@ export default function Home() {
             {categories.map((category) => (
               <tr
                 key={category.id}
-                onClick={() => handleCategoryClick(category.id)} // ✅ Clique actif
-                className="hover:bg-blue-50 transition duration-200 cursor-pointer" // ✅ Curseur + hover
+                onClick={() => handleCategoryClick(category)}
+                className="hover:bg-blue-50 transition duration-200 cursor-pointer"
               >
                 <td className="py-3 px-4 border-t border-gray-200 text-gray-800 font-medium">
                   {category.id}
                 </td>
-                <td
-                  className="py-3 px-4 border-t border-gray-200 text-blue-600 font-semibold hover:underline hover:text-blue-800"
-                >
+                <td className="py-3 px-4 border-t border-gray-200 text-blue-600 font-semibold hover:underline hover:text-blue-800">
                   {category.name}
                 </td>
               </tr>

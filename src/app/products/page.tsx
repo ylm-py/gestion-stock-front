@@ -1,7 +1,8 @@
 "use client";
 import { getProducts, deleteProduct } from "@/lib/api";
 import ProductCard from "../components/ProductCard";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 
 const categories = [
   { name: "All" },
@@ -13,22 +14,21 @@ const categories = [
 ];
 
 export default function ProductsPage() {
-  const products1 = [
+  const searchParams = useSearchParams();
+  const categoryFromURL = searchParams.get("category") || "All";
+
+  const [selectedCategory, setSelectedCategory] = useState<string>(categoryFromURL);
+  const [products, setProducts] = useState<any[]>([
     { id: 1, name: "Protein Powder", expirationDate: "2024-12-31", quantity: 20, category: "Nutrition" },
     { id: 2, name: "Yoga Mat", expirationDate: "2026-01-15", quantity: 5, category: "Sport" },
     { id: 3, name: "Face Cream", expirationDate: "2023-11-20", quantity: 0, category: "Beaute" },
     { id: 4, name: "Shampoo", expirationDate: "2025-05-10", quantity: 30, category: "Hygiene" },
     { id: 5, name: "Candle Set", expirationDate: "2027-08-25", quantity: 12, category: "Decoration" },
-  ];
+  ]);
 
-  const [products, setProducts] = useState<any[]>(products1);
-  const [error, setError] = useState<string | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<string>(categories[0].name);
-
-  async function handleDelete(id: number) {
-    await deleteProduct(id);
-    setProducts(products.filter((p) => p.id !== id));
-  }
+  useEffect(() => {
+    setSelectedCategory(categoryFromURL);
+  }, [categoryFromURL]);
 
   const filteredProducts = products.filter(
     selectedCategory === "All"
@@ -54,10 +54,8 @@ export default function ProductsPage() {
         </select>
       </div>
 
-      {error && <div className="text-red-600 mb-4">{error}</div>}
-
       {filteredProducts.map((p: any) => (
-        <ProductCard key={p.id} product={p} onDelete={handleDelete} />
+        <ProductCard key={p.id} product={p} onDelete={() => {}} />
       ))}
     </div>
   );

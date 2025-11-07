@@ -8,7 +8,7 @@ export default function ProductCard({ product, onDelete }: any) {
   const [isRestocked, setIsRestocked] = useState<boolean>(false);
 
   const isOutOfStock = product.quantity === 0;
-  const needsRestock = product.quantity < 15 && product.quantity > 0;
+  const needsRestock = product.quantity < 15 && product.quantity >= 0;
 
   const today = new Date();
   const maxDate = new Date();
